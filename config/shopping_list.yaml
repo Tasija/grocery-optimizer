@@ -1,0 +1,54 @@
+# Grocery list with per-store product mapping.
+# For frisco/auchan/carrefour: use a search query (first run) or a pinned
+# product_id once you've verified the match (deterministic, no fuzzy noise).
+# unit: how to normalize price for fair comparison (kg / l / szt)
+
+items:
+  - key: mleko_2proc
+    display: "Mleko 2% 1L"
+    unit: l
+    stores:
+      frisco: { query: "mleko 2% 1l" }
+      auchan: { query: "mleko 2%" }
+      carrefour: { query: "mleko 2% 1l" }
+
+  - key: piers_kurczaka
+    display: "Pierś z kurczaka (kg)"
+    unit: kg
+    stores:
+      frisco: { query: "filet z piersi kurczaka" }
+      auchan: { query: "filet z kurczaka" }
+      carrefour: { query: "piers kurczaka filet" }
+
+  - key: jaja_l_10
+    display: "Jaja L 10 szt"
+    unit: szt
+    stores:
+      frisco: { query: "jaja L 10" }
+      auchan: { query: "jaja rozmiar L 10" }
+      carrefour: { query: "jaja L 10 sztuk" }
+
+  - key: maslo_200g
+    display: "Masło extra 200g"
+    unit: kg
+    stores:
+      frisco: { query: "masło extra 200g" }
+      auchan: { query: "masło extra 82%" }
+      carrefour: { query: "masło extra 200g" }
+
+  - key: pomidory
+    display: "Pomidory (kg)"
+    unit: kg
+    stores:
+      frisco: { query: "pomidory luz" }
+      auchan: { query: "pomidory" }
+      carrefour: { query: "pomidory luz" }
+
+# Lidl & Biedronka have no e-commerce in PL -> promo-only sources.
+# Their scrapers match by keyword against current leaflet/promo data.
+promo_keywords:
+  mleko_2proc: ["mleko"]
+  piers_kurczaka: ["pierś z kurczaka", "filet z kurczaka"]
+  jaja_l_10: ["jaja"]
+  maslo_200g: ["masło"]
+  pomidory: ["pomidory"]
