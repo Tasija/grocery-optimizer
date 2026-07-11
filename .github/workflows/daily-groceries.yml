@@ -2,22 +2,40 @@ name: Daily grocery price check
 
 on:
   schedule:
-    - cron: "0 5 * * *"   # 05:00 UTC = 07:00 in Poland (summer)
-  workflow_dispatch:        # manual trigger for testing
+    # GitHub cron is fixed UTC and ignores DST. Fire at both 07:00 and 08:00
+    # UTC; the guard step below lets exactly one through — whichever equals
+    # 09:00 in Warsaw (07:00 UTC in summer / CEST, 08:00 UTC in winter / CET).
+    - cron: "0 7 * * *"
+    - cron: "0 8 * * *"
+  workflow_dispatch:        # manual trigger, always runs (bypasses the guard)
 
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Skip unless it's 09:00 in Warsaw (scheduled runs only)
+        if: github.event_name == 'schedule'
+        run: |
+          hour=$(TZ=Europe/Warsaw date +%H)
+          if [ "$hour" != "09" ]; then
+            echo "Warsaw local hour is $hour, not 09 — skipping this trigger."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
       - uses: actions/checkout@v4
+        if: env.SKIP != '1'
       - uses: actions/setup-python@v5
+        if: env.SKIP != '1'
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+        if: env.SKIP != '1'
       - run: playwright install chromium --with-deps
+        if: env.SKIP != '1'
       - run: python -m pytest tests/ -q  # -m puts the repo root on sys.path
+        if: env.SKIP != '1'
       - run: python main.py
+        if: env.SKIP != '1'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
