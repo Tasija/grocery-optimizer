@@ -1,6 +1,8 @@
 """Daily pipeline: scrape -> optimize -> notify."""
 from __future__ import annotations
 
+import time
+
 import yaml
 
 import optimizer
@@ -14,24 +16,38 @@ def load_config(path: str = "config/shopping_list.yaml") -> dict:
         return yaml.safe_load(f)
 
 
+def _safe(scrape_fn, label: str) -> list[Offer]:
+    """One broken scraper must never kill the whole run."""
+    try:
+        return scrape_fn()
+    except Exception as e:
+        print(f"[{label}] scraper crashed -> {type(e).__name__}: {e}")
+        return []
+
+
 def collect_offers(cfg: dict) -> list[Offer]:
     offers: list[Offer] = []
 
-    # Full-catalog stores
+    # Full-catalog stores; ~1 request/site/item, paced to stay polite
     for item in cfg["items"]:
         key, unit = item["key"], item["unit"]
         stores = item.get("stores", {})
         if "frisco" in stores:
-            offers += frisco.search(key, stores["frisco"]["query"], unit)
+            offers += _safe(
+                lambda k=key, q=stores["frisco"]["query"], u=unit:
+                    frisco.search(k, q, u),
+                f"Frisco/{key}")
         for store_name, cfg_key in (("Auchan", "auchan"), ("Carrefour", "carrefour")):
             if cfg_key in stores:
-                offers += hypermarkets.search(
-                    store_name, key, stores[cfg_key]["query"], unit
-                )
+                offers += _safe(
+                    lambda s=store_name, k=key, q=stores[cfg_key]["query"], u=unit:
+                        hypermarkets.search(s, k, q, u),
+                    f"{store_name}/{key}")
+        time.sleep(1.0)
 
     # Promo-only discounters
-    lidl_promos = discounters.fetch_lidl_promos()
-    biedronka_promos = discounters.fetch_biedronka_promos()
+    lidl_promos = _safe(discounters.fetch_lidl_promos, "Lidl")
+    biedronka_promos = _safe(discounters.fetch_biedronka_promos, "Biedronka")
     for item in cfg["items"]:
         key, unit = item["key"], item["unit"]
         keywords = cfg.get("promo_keywords", {}).get(key, [])

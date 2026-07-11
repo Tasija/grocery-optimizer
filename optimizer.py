@@ -32,17 +32,21 @@ def group_by_store(winners: dict[str, Offer]) -> dict[str, list[Offer]]:
 
 
 def single_store_baseline(offers: list[Offer]) -> tuple[str, float] | None:
-    """Cheapest single store that covers ALL items — the savings benchmark."""
-    by_store_item: dict[str, dict[str, float]] = defaultdict(dict)
+    """Cheapest single store that covers ALL items — the savings benchmark.
+    Best offer per store+item is picked by unit price (same rule as
+    best_offer_per_item); the store total sums the real pack prices."""
+    # store -> item -> (comparable, pack_price)
+    by_store_item: dict[str, dict[str, tuple[tuple[bool, float], float]]] = defaultdict(dict)
     all_items = {o.item_key for o in offers}
     for o in offers:
-        comparable = o.unit_price if o.unit_price is not None else o.price
+        comparable = (o.unit_price is None,
+                      o.unit_price if o.unit_price is not None else o.price)
         cur = by_store_item[o.store].get(o.item_key)
-        if cur is None or comparable < cur:
-            by_store_item[o.store][o.item_key] = o.price  # sum real pack prices
+        if cur is None or comparable < cur[0]:
+            by_store_item[o.store][o.item_key] = (comparable, o.price)
 
     candidates = {
-        store: sum(items.values())
+        store: sum(pack for _, pack in items.values())
         for store, items in by_store_item.items()
         if set(items) == all_items
     }

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import httpx
 
@@ -39,9 +40,22 @@ def format_message(grouped: dict[str, list[Offer]], total_cost: float,
 def send(text: str) -> None:
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = os.environ["TELEGRAM_CHAT_ID"]
-    r = httpx.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-        timeout=20,
-    )
-    r.raise_for_status()
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            r = httpx.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+                timeout=20,
+            )
+            r.raise_for_status()
+            return
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code < 500:
+                raise  # bad token/chat_id/markup — retrying won't help
+            last_exc = e
+        except httpx.HTTPError as e:
+            last_exc = e
+        if attempt == 0:
+            time.sleep(2)
+    raise last_exc  # type: ignore[misc]
